@@ -2,23 +2,31 @@ from typing import Any
 
 from solid import *
 from solid.utils import *
-from math import sin, cos, sqrt
+from math import sin, cos, sqrt, atan
 
 pagesize = "letter"
 order = 4
-size = 100
-fillet_size = 0.75
+actual_size=150
+size = actual_size/2
+fillet_size = 0.0
+fillet = False
+post = True  # Adds a hole for a mnounting post at the back.
+hole_radius = 1.5
 
 dtr = pi / 180
 
 
 def chopped_cube(size, fillet=True):
-    return intersection()(
-        cube(1.0 * size + fillet_size, center=True),
-        rotate([45, 0, 0])(cube(size * sqrt(2) - fillet_size, center=True)),
-        rotate([0, 45, 0])(cube(size * sqrt(2) - fillet_size, center=True)),
-        rotate([0, 0, 45])(cube(size * sqrt(2) - fillet_size, center=True))
-    )
+    if fillet:
+        return intersection()(
+            cube(1.0 * size + fillet_size, center=True),
+            rotate([45, 0, 0])(cube(size * sqrt(2) - fillet_size, center=True)),
+            rotate([0, 45, 0])(cube(size * sqrt(2) - fillet_size, center=True)),
+            rotate([0, 0, 45])(cube(size * sqrt(2) - fillet_size, center=True))
+        )
+    else:
+        return cube(1.0 * size+fillet_size, center=True),
+
 
 def compose(size, order):
     children = list()
@@ -29,10 +37,9 @@ def compose(size, order):
         (-0.5, 0.5, 0.5)
     ]:
         if order == 0:
-            pass
             children.append(
                 translate([(i * size) for i in direction])(
-                    chopped_cube(smux*size, True)))
+                    chopped_cube(smux*size, fillet)))
         else:
             children.append(
                 translate([(i * size) for i in direction])(
@@ -44,7 +51,7 @@ def compose(size, order):
         (0.5, -0.5, -0.5),
     ]:
         children.append(translate([(i*size) for i in direction])(
-                chopped_cube(smux*size, True)))
+                chopped_cube(smux*size, fillet)))
 
     return union()(*children)
 
@@ -80,5 +87,15 @@ def decompose(parent, size, order):
 
 if __name__ == "__main__":
     # top = decompose(cube(size, center=True), size/2, order)
-    top = compose(size, order)
-    scad_render_to_file(top, "sierpinski_hex_3d.scad")
+    if post:
+        # Calculate the angle of bottom back corner to top front corner
+
+        cross_angle = (180*atan(2*size/(size*sqrt(2.0))))/pi
+        top = difference()(compose(size, order),
+                           translate((-size, -size, -size))(
+                          rotate((0, 0, 45))(
+                              rotate((0, cross_angle, 0))(
+                                  cylinder(r=hole_radius, h=60, center=True, segments=8)))))
+    else:
+        top = compose(size, order)
+    scad_render_to_file(top, f"sierpinski_hex_3d_{actual_size}mm_ord{order}.scad")
